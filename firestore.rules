@@ -1,0 +1,44 @@
+rules_version = '2';
+// 끝없는 숲 — Firestore 보안 규칙
+// 누구나 읽을 수 있고, 익명 로그인한 사용자만 정해진 형식으로 "새로 쓰기"만 가능.
+// 수정·삭제는 아무도 못 함 (관리자는 Firebase 콘솔에서 직접 삭제).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /trails/{id} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['k', 'cell', 'pts', 'sid', 't', 'exp'])
+        && request.resource.data.k is string && request.resource.data.k.size() < 40
+        && request.resource.data.cell is string && request.resource.data.cell.size() < 30
+        && request.resource.data.pts is list
+        && request.resource.data.pts.size() >= 8 && request.resource.data.pts.size() <= 160
+        && request.resource.data.sid is string && request.resource.data.sid.size() < 20
+        && request.resource.data.t == request.time
+        && request.resource.data.exp is timestamp
+        && request.resource.data.exp < request.time + duration.value(4, 'd');
+      allow update, delete: if false;
+    }
+
+    match /messages/{id} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['cell', 'x', 'z', 'text', 'sid', 'uid', 't', 'exp'])
+        && request.resource.data.text is string
+        && request.resource.data.text.size() >= 1 && request.resource.data.text.size() <= 40
+        && !request.resource.data.text.matches('.*(https?:|www[.]).*')
+        && request.resource.data.x is number && request.resource.data.z is number
+        && request.resource.data.cell is string && request.resource.data.cell.size() < 30
+        && request.resource.data.sid is string && request.resource.data.sid.size() < 20
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.t == request.time
+        && request.resource.data.exp is timestamp
+        && request.resource.data.exp < request.time + duration.value(32, 'd');
+      allow update, delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

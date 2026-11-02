@@ -1,0 +1,82 @@
+:root { --ink: #f2efe4; --dim: rgba(242, 239, 228, 0.66); --glass: rgba(18, 28, 22, 0.42); --line: rgba(255, 255, 255, 0.14); --accent: #ffd99a; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #16241c; color: var(--ink);
+  font-family: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; overscroll-behavior: none; }
+body { position: fixed; inset: 0; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+#app, #app canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+button { font: inherit; color: inherit; cursor: pointer; }
+
+/* HUD */
+#hud { position: fixed; left: calc(14px + env(safe-area-inset-left)); top: calc(12px + env(safe-area-inset-top)); pointer-events: none;
+  font-size: 12px; letter-spacing: 0.02em; line-height: 1.55; color: var(--dim); text-shadow: 0 1px 3px rgba(0,0,0,.45); opacity: 0; transition: opacity 1.5s; }
+#hudPhase { color: var(--ink); font-size: 13px; }
+body.playing #hud, body.playing #buttons { opacity: 1; }
+
+#buttons { position: fixed; right: calc(12px + env(safe-area-inset-right)); top: calc(10px + env(safe-area-inset-top)); display: flex; gap: 8px; opacity: 0; transition: opacity 1.5s; }
+#buttons button { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: var(--glass);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); display: grid; place-items: center; padding: 0; }
+#buttons svg { width: 20px; height: 20px; fill: none; stroke: var(--ink); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+#buttons .x { display: none; }
+#buttons .muted .x { display: inline; }
+#buttons .muted .wave { display: none; }
+#buttons .muted { opacity: 0.55; }
+#btnMsg { background: rgba(255, 217, 154, 0.22) !important; border-color: rgba(255, 217, 154, 0.45) !important; }
+
+/* 가상 조이스틱 */
+#joy { position: fixed; width: 112px; height: 112px; margin: -56px 0 0 -56px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.28);
+  background: rgba(255,255,255,.06); pointer-events: none; opacity: 0; transition: opacity .15s; }
+#joy.on { opacity: 1; }
+#knob { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; border-radius: 50%; background: rgba(255,255,255,.35); transform: translate(-50%,-50%); }
+
+#hint { position: fixed; left: 50%; bottom: calc(26px + env(safe-area-inset-bottom)); transform: translateX(-50%); width: max-content; max-width: 88vw; text-align: center;
+  font-size: 13px; color: var(--ink); background: var(--glass); border: 1px solid var(--line); padding: 9px 16px; border-radius: 999px; pointer-events: none;
+  opacity: 0; transition: opacity 1.2s; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+body.playing #hint { opacity: 1; }
+body.playing #hint.off { opacity: 0; }
+
+#toast { position: fixed; left: 50%; top: 22%; transform: translate(-50%, 8px); font-size: 15px; letter-spacing: .04em; color: var(--accent);
+  text-shadow: 0 1px 8px rgba(0,0,0,.6); opacity: 0; transition: opacity 1s, transform 1s; pointer-events: none; white-space: nowrap; }
+#toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+/* 메시지 라벨 */
+#labels { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+.msg { position: absolute; left: 0; top: 0; max-width: 220px; padding: 9px 13px 7px; border-radius: 12px; background: rgba(20, 26, 22, 0.55);
+  border: 1px solid rgba(255, 217, 154, 0.35); color: var(--ink); font-size: 14px; line-height: 1.45; text-align: center; transition: opacity .4s;
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); word-break: keep-all; overflow-wrap: anywhere; will-change: transform; }
+.msg-meta { margin-top: 3px; font-size: 11px; color: var(--dim); display: flex; gap: 6px; justify-content: center; align-items: center; }
+.msg-hide { pointer-events: auto; border: 0; background: none; color: var(--dim); font-size: 11px; padding: 4px 6px; text-decoration: underline; }
+
+/* 시작 화면 */
+#start { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px;
+  background: radial-gradient(ellipse at 50% 40%, rgba(10,18,14,.25), rgba(10,18,14,.78)); transition: opacity 1.4s; z-index: 10; }
+#start.off { opacity: 0; pointer-events: none; }
+.card { text-align: center; max-width: 420px; }
+#start h1 { font-weight: 300; font-size: clamp(34px, 9vw, 52px); letter-spacing: .28em; margin: 0 0 14px; padding-left: .28em; text-shadow: 0 2px 20px rgba(0,0,0,.4); }
+.sub { word-break: keep-all; color: var(--dim); font-size: 14px; line-height: 1.8; margin: 0 0 30px; }
+#enter { border: 1px solid rgba(255,255,255,.45); background: rgba(255,255,255,.08); padding: 14px 34px; border-radius: 999px; font-size: 16px; letter-spacing: .12em;
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); transition: background .3s; }
+#enter:hover { background: rgba(255,255,255,.18); }
+#resume { font-size: 13px; color: var(--accent); min-height: 1em; margin: 18px 0 0; }
+#netState { font-size: 12px; color: var(--dim); margin: 8px 0 0; }
+#netState.on::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #9be38f; margin-right: 6px; vertical-align: 1px; box-shadow: 0 0 6px #9be38f; }
+.tip { font-size: 12px; color: var(--dim); opacity: .7; margin-top: 4px; }
+
+/* 메시지 작성 */
+#msgModal { position: fixed; inset: 0; display: none; place-items: center; background: rgba(8,12,10,.5); z-index: 20; padding: 20px; }
+#msgModal.on { display: grid; }
+#msgForm { width: min(360px, 100%); background: rgba(24,32,27,.92); border: 1px solid var(--line); border-radius: 18px; padding: 22px 20px 18px; text-align: left; }
+#msgForm h2 { font-size: 16px; font-weight: 500; margin: 0 0 12px; }
+#msgText { width: 100%; resize: none; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.06); color: var(--ink);
+  font: inherit; font-size: 16px; padding: 10px 12px; outline: none; user-select: text; -webkit-user-select: text; }
+#msgText:focus { border-color: rgba(255,217,154,.6); }
+.row { display: flex; justify-content: space-between; font-size: 12px; margin-top: 6px; min-height: 16px; }
+#msgErr { color: #ffab91; }
+#msgCount { color: var(--dim); }
+#msgNote, .small { font-size: 12px; color: var(--dim); margin: 8px 0 0; line-height: 1.5; }
+.small { opacity: .75; margin-top: 2px; }
+.actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.actions button { border-radius: 999px; padding: 9px 20px; border: 1px solid rgba(255,217,154,.5); background: rgba(255,217,154,.2); }
+.actions .ghost { border-color: var(--line); background: none; }
+.actions button:disabled { opacity: .5; }
+
+@media (max-width: 520px) { #hud { font-size: 11px; } #hudPhase { font-size: 12px; } }

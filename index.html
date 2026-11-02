@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>끝없는 숲</title>
+  <meta name="description" content="끝없이 이어지는 숲을 천천히 걸어 보세요. 누군가 남긴 발자국과 메시지를 만날지도 몰라요." />
+  <meta name="theme-color" content="#16241c" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="끝없는 숲" />
+  <meta property="og:title" content="끝없는 숲" />
+  <meta property="og:description" content="끝없이 이어지는 숲을 천천히 걸어 보세요." />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="assets/icon-192.png" />
+  <link rel="apple-touch-icon" href="assets/icon-192.png" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script type="importmap">{ "imports": { "three": "./lib/three.module.min.js" } }</script>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="labels"></div>
+
+  <div id="hud">
+    <div id="hudPhase"></div>
+    <div id="hudStat"></div>
+  </div>
+
+  <div id="buttons">
+    <button id="btnMsg" type="button" aria-label="흔적 남기기" title="흔적 남기기">
+      <svg viewBox="0 0 24 24"><path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>
+    </button>
+    <button id="btnSound" type="button" aria-label="환경음 켜기/끄기" title="환경음">
+      <svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path class="wave" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/><path class="x" d="M16 9l5 6M21 9l-5 6"/></svg>
+    </button>
+    <button id="btnMusic" type="button" aria-label="음악 켜기/끄기" title="음악">
+      <svg viewBox="0 0 24 24"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/><path class="x" d="M3 3l18 18"/></svg>
+    </button>
+    <button id="btnFull" type="button" aria-label="전체 화면" title="전체 화면">
+      <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+    </button>
+  </div>
+
+  <div id="joy"><div id="knob"></div></div>
+  <div id="hint"></div>
+  <div id="toast"></div>
+
+  <div id="start">
+    <div class="card">
+      <h1>끝없는 숲</h1>
+      <p class="sub">끝이 없는 숲을 천천히 걸어 보세요.<br />누군가 지나간 빛의 발자국과, 남겨 둔 한 줄을 만날지도 몰라요.</p>
+      <button id="enter" type="button">숲으로 들어가기</button>
+      <p id="resume"></p>
+      <p id="netState">숲과 연결하는 중…</p>
+      <p class="tip">이어폰을 끼고 걸으면 더 좋아요</p>
+    </div>
+  </div>
+
+  <div id="msgModal">
+    <form id="msgForm" class="card" autocomplete="off">
+      <h2>이 자리에 흔적 남기기</h2>
+      <textarea id="msgText" maxlength="40" rows="2" placeholder="숲을 지나는 누군가에게 한 줄"></textarea>
+      <div class="row"><span id="msgErr"></span><span id="msgCount">0/40</span></div>
+      <p id="msgNote"></p>
+      <p class="small">이름·연락처 같은 개인정보는 남기지 말아 주세요.</p>
+      <div class="actions">
+        <button type="button" id="msgCancel" class="ghost">닫기</button>
+        <button type="submit" id="msgSend">남기기</button>
+      </div>
+    </form>
+  </div>
+
+  <noscript>이 숲은 JavaScript가 필요해요.</noscript>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

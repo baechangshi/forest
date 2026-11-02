@@ -1,0 +1,13 @@
+{
+  "name": "끝없는 숲",
+  "short_name": "끝없는 숲",
+  "start_url": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#16241c",
+  "theme_color": "#16241c",
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
