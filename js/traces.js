@@ -1,6 +1,5 @@
 // 다른 접속자의 흔적: 빛나는 발자국 + 짧은 메시지 (Firebase Firestore)
 import * as THREE from 'three';
-import { FIREBASE_CONFIG } from './config.js';
 import { CHUNK } from './world.js';
 import { GLOW_TEX } from './sky.js';
 
@@ -24,8 +23,8 @@ export function ago(ms) {
 }
 
 export class Traces {
-  constructor(scene, groundFn, labelsEl) {
-    this.scene = scene; this.ground = groundFn; this.labelsEl = labelsEl;
+  constructor(scene, groundFn, labelsEl, account) {
+    this.scene = scene; this.ground = groundFn; this.labelsEl = labelsEl; this.account = account;
     this.online = false; this.sid = Math.random().toString(36).slice(2, 12);
     this.trails = new Map();     // cell -> [{pts, t}]
     this.msgs = new Map();       // id -> {id,x,z,text,t,cell,mine}
@@ -45,22 +44,35 @@ export class Traces {
     this.stoneGeo = new THREE.DodecahedronGeometry(0.22, 0);
     this.stoneMat = new THREE.MeshLambertMaterial({ color: 0x8e918a, flatShading: true });
     this.orbMat = new THREE.SpriteMaterial({ map: GLOW_TEX, color: 0xffd38a, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
+    this.myOrbMat = new THREE.SpriteMaterial({ map: GLOW_TEX, color: 0x9ff0d8, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }); // 내가 남긴 메시지는 민트빛
     this.markers = new Map(); this.labels = new Map();
   }
 
   async init() {
-    if (!FIREBASE_CONFIG.apiKey) { this.loadLocal(); return false; }
+    const a = this.account;
+    if (!a.enabled) { this.loadLocal(); return false; }
     try {
-      const fb = await import('../lib/firebase.js');
-      const app = fb.initializeApp(FIREBASE_CONFIG);
-      const auth = fb.getAuth(app);
-      const cred = await fb.signInAnonymously(auth);
-      this.uid = cred.user.uid;
-      this.db = fb.getFirestore(app); this.fb = fb; this.online = true;
+      await a.init();
+      this.db = a.db; this.fb = a.fb; this.online = true;
+      a.onChange(() => this.refreshMine());
       return true;
     } catch (e) {
       console.warn('[forest] Firebase 연결 실패 — 혼자 걷는 모드로 전환', e);
       this.loadLocal(); return false;
+    }
+  }
+  get uid() { return this.account.uid; }
+  get canWrite() { return !this.online || this.account.isGoogle; }
+
+  // 로그인 상태가 바뀌면 '내 메시지' 표시를 다시 계산
+  refreshMine() {
+    for (const [id, m] of this.msgs) {
+      if (!m.uid) continue;
+      const mine = m.uid === this.uid;
+      if (mine === m.mine) continue;
+      m.mine = mine;
+      const g = this.markers.get(id); if (g) g.userData.orb.material = mine ? this.myOrbMat : this.orbMat;
+      const l = this.labels.get(id); if (l) l.remove(); this.labels.delete(id);
     }
   }
 
@@ -83,7 +95,7 @@ export class Traces {
   }
   flush() {
     const pts = this.my.pts;
-    if (!this.online || pts.length < 8 || !this.my.cell) return;
+    if (!this.online || !this.uid || pts.length < 8 || !this.my.cell) return;
     const now = Date.now();
     const doc = { k: this.my.cell + '|' + dayIdx(now), cell: this.my.cell, pts: pts.slice(0, 160), sid: this.sid, t: this.fb.serverTimestamp(), exp: this.fb.Timestamp.fromMillis(now + (TRAIL_DAYS + 1) * DAY) };
     this.fb.addDoc(this.fb.collection(this.db, 'trails'), doc).catch((e) => console.warn('[forest] trail', e));
@@ -116,7 +128,7 @@ export class Traces {
       ms.forEach((doc) => {
         const v = doc.data(), t = v.t?.toMillis?.() ?? Date.now();
         if (Date.now() - t > MSG_DAYS * DAY || typeof v.text !== 'string') return;
-        this.addMsg({ id: doc.id, x: v.x, z: v.z, text: v.text.slice(0, 60), t, cell: v.cell, mine: v.uid === this.uid });
+        this.addMsg({ id: doc.id, x: v.x, z: v.z, text: v.text.slice(0, 60), t, cell: v.cell, uid: v.uid, mine: !!this.uid && v.uid === this.uid });
       });
       this.dirty = true;
     } catch (e) { console.warn('[forest] fetch', e); cells.forEach((k) => this.fetched.delete(k)); }
@@ -132,6 +144,7 @@ export class Traces {
   }
   async post(text, x, z) {
     const c = this.canPost(); if (!c.ok) throw new Error(c.why);
+    if (!this.canWrite) throw new Error('구글 로그인 후에 남길 수 있어요.');
     const [cx, cz] = cellXY(x, z), cell = cellKey(cx, cz), now = Date.now();
     x = Math.round(x * 10) / 10; z = Math.round(z * 10) / 10;
     let id = 'local-' + now;
@@ -143,7 +156,18 @@ export class Traces {
       const list = load(LS.local, []); list.push({ id, x, z, text, t: now, cell }); save(LS.local, list.slice(-50));
     }
     c.r.n++; c.r.last = now; save(LS.rate, c.r);
-    this.addMsg({ id, x, z, text, t: now, cell, mine: true });
+    this.addMsg({ id, x, z, text, t: now, cell, uid: this.online ? this.uid : null, mine: true });
+  }
+  // 내가 남긴 메시지 지우기
+  async remove(id) {
+    if (this.online) await this.fb.deleteDoc(this.fb.doc(this.db, 'messages', id));
+    else save(LS.local, load(LS.local, []).filter((m) => m.id !== id));
+    this.drop(id);
+  }
+  drop(id) {
+    const g = this.markers.get(id); if (g) this.markerGroup.remove(g);
+    this.markers.delete(id); this.msgs.delete(id);
+    const l = this.labels.get(id); if (l) l.remove(); this.labels.delete(id);
   }
   addMsg(m) {
     if (this.msgs.has(m.id) || this.hidden.has(m.id)) return;
@@ -154,15 +178,13 @@ export class Traces {
     [[0, 0.1, 0, 1.2], [0.05, 0.3, 0.02, 0.85], [-0.02, 0.46, 0, 0.6]].forEach(([x, yy, z, s]) => {
       const st = new THREE.Mesh(this.stoneGeo, this.stoneMat); st.position.set(x, yy, z); st.scale.set(s, s * 0.6, s); st.rotation.y = s * 5; g.add(st);
     });
-    const orb = new THREE.Sprite(this.orbMat); orb.scale.setScalar(0.38); orb.position.y = 1.05; g.add(orb);
+    const orb = new THREE.Sprite(m.mine ? this.myOrbMat : this.orbMat); orb.scale.setScalar(0.38); orb.position.y = 1.05; g.add(orb);
     g.userData = { orb, ph: Math.random() * 6 };
     this.markerGroup.add(g); this.markers.set(m.id, g);
   }
   hide(id) {
     this.hidden.add(id); save(LS.hidden, [...this.hidden].slice(-300));
-    const g = this.markers.get(id); if (g) this.markerGroup.remove(g);
-    this.markers.delete(id); this.msgs.delete(id);
-    const l = this.labels.get(id); if (l) l.remove(); this.labels.delete(id);
+    this.drop(id);
   }
 
   /* ---------- 발자국 다시 그리기 ---------- */
@@ -201,7 +223,7 @@ export class Traces {
       for (const k of this.trails.keys()) { const [a, b] = k.split(',').map(Number); if (Math.abs(a - cx) > 2 || Math.abs(b - cz) > 2) { this.trails.delete(k); this.fetched.delete(k); this.dirty = true; } }
       for (const [id, mm] of this.msgs) if (!mm.mine || this.online) {
         const [a, b] = cellXY(mm.x, mm.z);
-        if (Math.abs(a - cx) > 2 || Math.abs(b - cz) > 2) { const g = this.markers.get(id); if (g) this.markerGroup.remove(g); this.markers.delete(id); this.msgs.delete(id); const l = this.labels.get(id); if (l) l.remove(); this.labels.delete(id); }
+        if (Math.abs(a - cx) > 2 || Math.abs(b - cz) > 2) this.drop(id);
       }
       this.fetchAround(cx, cz);
     } else if (this.online && Math.random() < 0.004) this.fetchAround(cx, cz);
@@ -209,7 +231,7 @@ export class Traces {
 
     this.printMat.opacity = 0.35 + sky.night * 0.6;
     const t = performance.now() / 1000;
-    this.orbMat.opacity = 0.55 + sky.night * 0.45;
+    this.orbMat.opacity = this.myOrbMat.opacity = 0.55 + sky.night * 0.45;
     for (const g of this.markers.values()) {
       g.userData.orb.position.y = 1.0 + Math.sin(t * 1.3 + g.userData.ph) * 0.08;
     }
@@ -227,9 +249,16 @@ export class Traces {
       if (v.z > 1 || v.z < -1) { if (el) el.style.opacity = 0; continue; }
       if (!el) {
         el = document.createElement('div'); el.className = 'msg';
-        el.innerHTML = `<div class="msg-text"></div><div class="msg-meta"><span class="msg-age"></span>${m.mine ? '<span>· 내가 남김</span>' : '<button class="msg-hide" type="button">숨기기</button>'}</div>`;
+        el.innerHTML = `<div class="msg-text"></div><div class="msg-meta"><span class="msg-age"></span>${m.mine ? '<span class="msg-mine">· 내가 남김</span><button class="msg-hide msg-del" type="button">지우기</button>' : '<button class="msg-hide" type="button">숨기기</button>'}</div>`;
+        if (m.mine) el.classList.add('mine');
         el.querySelector('.msg-text').textContent = m.text;
-        el.querySelector('.msg-hide')?.addEventListener('click', (e) => { e.stopPropagation(); this.hide(id); });
+        el.querySelector('.msg-hide')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (!m.mine) return this.hide(id);
+          const b = e.currentTarget;
+          if (b.dataset.sure) this.remove(id).catch(() => { b.textContent = '지우지 못했어요'; });
+          else { b.dataset.sure = '1'; b.textContent = '정말 지울까요?'; }
+        });
         this.labelsEl.appendChild(el); this.labels.set(id, el);
       }
       el.querySelector('.msg-age').textContent = ago(m.t);

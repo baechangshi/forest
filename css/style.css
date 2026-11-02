@@ -62,10 +62,10 @@ body.playing #hint.off { opacity: 0; }
 .tip { font-size: 12px; color: var(--dim); opacity: .7; margin-top: 4px; }
 
 /* 메시지 작성 */
-#msgModal { position: fixed; inset: 0; display: none; place-items: center; background: rgba(8,12,10,.5); z-index: 20; padding: 20px; }
-#msgModal.on { display: grid; }
-#msgForm { width: min(360px, 100%); background: rgba(24,32,27,.92); border: 1px solid var(--line); border-radius: 18px; padding: 22px 20px 18px; text-align: left; }
-#msgForm h2 { font-size: 16px; font-weight: 500; margin: 0 0 12px; }
+#msgModal, .modal { position: fixed; inset: 0; display: none; place-items: center; background: rgba(8,12,10,.5); z-index: 20; padding: 20px; }
+#msgModal.on, .modal.on { display: grid; }
+#msgForm, .panel { width: min(360px, 100%); background: rgba(24,32,27,.92); border: 1px solid var(--line); border-radius: 18px; padding: 22px 20px 18px; text-align: left; }
+#msgForm h2, .panel h2 { font-size: 16px; font-weight: 500; margin: 0 0 12px; }
 #msgText { width: 100%; resize: none; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.06); color: var(--ink);
   font: inherit; font-size: 16px; padding: 10px 12px; outline: none; user-select: text; -webkit-user-select: text; }
 #msgText:focus { border-color: rgba(255,217,154,.6); }
@@ -80,3 +80,15 @@ body.playing #hint.off { opacity: 0; }
 .actions button:disabled { opacity: .5; }
 
 @media (max-width: 520px) { #hud { font-size: 11px; } #hudPhase { font-size: 12px; } }
+
+/* 계정 */
+[hidden] { display: none !important; }
+.lead { font-size: 14px; line-height: 1.6; margin: 0 0 6px; }
+.err { color: #ffab91; font-size: 12px; min-height: 1em; margin: 8px 0 0; }
+.google { margin-top: 14px; width: 100%; border-radius: 999px; padding: 11px 16px; border: 1px solid rgba(255,255,255,.4); background: #f4f1ea; color: #1d2a22; font-weight: 600; }
+.link { margin-top: 14px; border: 0; background: none; color: var(--ink); font-size: 13px; text-decoration: underline; text-underline-offset: 3px; opacity: .85; padding: 6px; }
+#msgModal.need-login #msgSend { display: none; }
+.msg.mine { border-color: rgba(159, 240, 216, 0.55); }
+.msg-mine { color: #9ff0d8; }
+#buttons #btnAcct.signed { border-color: rgba(159, 240, 216, 0.6); }
+#buttons #btnAcct.signed svg { stroke: #9ff0d8; }

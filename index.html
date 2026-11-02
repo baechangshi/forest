@@ -31,6 +31,9 @@
     <button id="btnMsg" type="button" aria-label="흔적 남기기" title="흔적 남기기">
       <svg viewBox="0 0 24 24"><path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>
     </button>
+    <button id="btnAcct" type="button" aria-label="계정" title="계정" hidden>
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>
+    </button>
     <button id="btnSound" type="button" aria-label="환경음 켜기/끄기" title="환경음">
       <svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path class="wave" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/><path class="x" d="M16 9l5 6M21 9l-5 6"/></svg>
     </button>
@@ -53,6 +56,7 @@
       <button id="enter" type="button">숲으로 들어가기</button>
       <p id="resume"></p>
       <p id="netState">숲과 연결하는 중…</p>
+      <button id="startLogin" type="button" class="link" hidden>Google로 로그인하고 어느 기기에서든 이어 걷기</button>
       <p class="tip">이어폰을 끼고 걸으면 더 좋아요</p>
     </div>
   </div>
@@ -60,15 +64,36 @@
   <div id="msgModal">
     <form id="msgForm" class="card" autocomplete="off">
       <h2>이 자리에 흔적 남기기</h2>
+      <div id="msgLoginBox" hidden>
+        <p class="lead">메시지는 구글 로그인 후에 남길 수 있어요.</p>
+        <p class="small">로그인하면 내가 남긴 메시지를 다시 알아볼 수 있고, 다른 기기에서도 걷던 자리에서 이어 걸을 수 있어요. 숲에는 이름이나 이메일이 표시되지 않아요.</p>
+        <button type="button" id="msgLoginBtn" class="google">Google로 로그인</button>
+        <p class="err" id="msgLoginErr"></p>
+      </div>
+      <div id="msgFields">
       <textarea id="msgText" maxlength="40" rows="2" placeholder="숲을 지나는 누군가에게 한 줄"></textarea>
       <div class="row"><span id="msgErr"></span><span id="msgCount">0/40</span></div>
       <p id="msgNote"></p>
       <p class="small">이름·연락처 같은 개인정보는 남기지 말아 주세요.</p>
+      </div>
       <div class="actions">
         <button type="button" id="msgCancel" class="ghost">닫기</button>
         <button type="submit" id="msgSend">남기기</button>
       </div>
     </form>
+  </div>
+
+  <div id="acctModal" class="modal">
+    <div class="card panel">
+      <h2>계정</h2>
+      <p id="acctText" class="lead"></p>
+      <p id="acctSub" class="small"></p>
+      <p class="err" id="acctErr"></p>
+      <div class="actions">
+        <button type="button" id="acctClose" class="ghost">닫기</button>
+        <button type="button" id="acctBtn"></button>
+      </div>
+    </div>
   </div>
 
   <noscript>이 숲은 JavaScript가 필요해요.</noscript>

@@ -1,13 +1,19 @@
 rules_version = '2';
 // 끝없는 숲 — Firestore 보안 규칙
-// 누구나 읽을 수 있고, 익명 로그인한 사용자만 정해진 형식으로 "새로 쓰기"만 가능.
-// 수정·삭제는 아무도 못 함 (관리자는 Firebase 콘솔에서 직접 삭제).
+// - 발자국(trails): 익명 포함 로그인한 누구나 새로 쓰기만 가능
+// - 메시지(messages): 구글 로그인한 사람만 작성, 본인 글만 삭제 가능
+// - 이어 걷기(users/{uid}): 본인(구글 로그인)만 읽고 쓰기
+// - 차단(banned/{uid}): 콘솔에서 uid로 문서를 만들면 그 계정은 아무것도 쓸 수 없음
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function signedIn() { return request.auth != null; }
+    function isGoogle() { return signedIn() && request.auth.token.firebase.sign_in_provider == 'google.com'; }
+    function notBanned() { return !exists(/databases/$(database)/documents/banned/$(request.auth.uid)); }
+
     match /trails/{id} {
       allow read: if true;
-      allow create: if request.auth != null
+      allow create: if signedIn() && notBanned()
         && request.resource.data.keys().hasOnly(['k', 'cell', 'pts', 'sid', 't', 'exp'])
         && request.resource.data.k is string && request.resource.data.k.size() < 40
         && request.resource.data.cell is string && request.resource.data.cell.size() < 30
@@ -22,7 +28,7 @@ service cloud.firestore {
 
     match /messages/{id} {
       allow read: if true;
-      allow create: if request.auth != null
+      allow create: if isGoogle() && notBanned()
         && request.resource.data.keys().hasOnly(['cell', 'x', 'z', 'text', 'sid', 'uid', 't', 'exp'])
         && request.resource.data.text is string
         && request.resource.data.text.size() >= 1 && request.resource.data.text.size() <= 40
@@ -34,7 +40,23 @@ service cloud.firestore {
         && request.resource.data.t == request.time
         && request.resource.data.exp is timestamp
         && request.resource.data.exp < request.time + duration.value(32, 'd');
-      allow update, delete: if false;
+      allow delete: if isGoogle() && resource.data.uid == request.auth.uid;
+      allow update: if false;
+    }
+
+    match /users/{uid} {
+      allow read: if isGoogle() && request.auth.uid == uid;
+      allow write: if isGoogle() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['x', 'z', 'yaw', 'dist', 'time', 'found', 'updatedAt'])
+        && request.resource.data.x is number && request.resource.data.z is number
+        && request.resource.data.yaw is number
+        && request.resource.data.dist is number && request.resource.data.time is number
+        && request.resource.data.found is list && request.resource.data.found.size() <= 1000
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    match /banned/{uid} {
+      allow read, write: if false;
     }
 
     match /{document=**} {

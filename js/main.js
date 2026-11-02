@@ -4,6 +4,7 @@ import { Sky } from './sky.js';
 import { Controls } from './controls.js';
 import { ForestAudio } from './audio.js';
 import { Traces } from './traces.js';
+import { Account } from './account.js';
 import { Animals } from './animals.js';
 import { checkMessage } from './filter.js';
 
@@ -30,7 +31,8 @@ const world = new World(scene, Q);
 const sky = new Sky(scene, Q);
 const controls = new Controls(renderer.domElement, $('#joy'), $('#knob'));
 const audio = new ForestAudio();
-const traces = new Traces(scene, ground, $('#labels'));
+const account = new Account();
+const traces = new Traces(scene, ground, $('#labels'), account);
 const animals = new Animals(scene, ground);
 
 /* ---------- 저장된 상태 ---------- */
@@ -40,12 +42,21 @@ const st = {
   dist: saved.dist || 0, time: saved.time || 0, found: new Set(saved.found || []),
 };
 controls.yaw = saved.yaw ?? 0;
+let walkedThisSession = 0, cloudMark = -1;
 function persist() {
-  try { localStorage.setItem('forest.state', JSON.stringify({ x: st.x, z: st.z, yaw: controls.yaw, dist: st.dist, time: st.time, found: [...st.found].slice(-2000) })); } catch {}
+  try { localStorage.setItem('forest.state', JSON.stringify({ x: st.x, z: st.z, yaw: controls.yaw, dist: st.dist, time: st.time, found: [...st.found].slice(-2000), savedAt: walkedThisSession > 1 ? Date.now() : saved.savedAt || 0 })); } catch {}
+}
+// 구글 로그인 중이면 걷던 자리를 클라우드에도 저장 (움직였을 때만)
+function cloudSave() {
+  if (!account.isGoogle || Math.abs(st.dist - cloudMark) < 2) return;
+  cloudMark = st.dist;
+  account.saveProfile({ x: st.x, z: st.z, yaw: controls.yaw, dist: st.dist, time: st.time, found: [...st.found] });
 }
 setInterval(persist, 3000);
-addEventListener('pagehide', () => { persist(); traces.flush(); });
-document.addEventListener('visibilitychange', () => { if (document.hidden) { persist(); traces.flush(); } });
+setInterval(cloudSave, 45000);
+const onLeave = () => { persist(); traces.flush(); cloudSave(); };
+addEventListener('pagehide', onLeave);
+document.addEventListener('visibilitychange', () => { if (document.hidden) onLeave(); });
 
 /* ---------- 미리 숲 만들기 ---------- */
 camera.position.set(st.x, ground(st.x, st.z) + 1.65, st.z);
@@ -68,10 +79,58 @@ function toast(msg, ms = 3600) {
 $('#hint').textContent = mobile ? '왼쪽을 눌러 걷고, 오른쪽을 밀어 둘러보세요 · 멀리 밀면 빨리 걸어요' : 'WASD·방향키로 걷고, 마우스를 끌어 둘러보세요 · Shift 빨리 걷기';
 if (st.dist > 1) $('#resume').textContent = `지금까지 ${fmtDist(st.dist)}를 걸었어요. 이어서 걸어요.`;
 
+/* ---------- 계정·이어 걷기 ---------- */
+function teleport(p) {
+  st.x = p.x; st.z = p.z; controls.yaw = p.yaw ?? controls.yaw; vel.set(0, 0);
+  while (world.update(st.x, st.z, 99) > 0);
+  camY = ground(st.x, st.z) + 1.65;
+}
+async function syncProfile() {
+  if (!account.isGoogle) return;
+  try {
+    const p = await account.loadProfile();
+    const localAt = walkedThisSession > 1 ? Date.now() : saved.savedAt || 0;
+    if (p) {
+      (p.found || []).forEach((k) => st.found.add(k));
+      if (p.savedAt > localAt && Number.isFinite(p.x) && Number.isFinite(p.z)) {
+        teleport(p); st.dist = Math.max(p.dist || 0, 0); st.time = Math.max(p.time || 0, 0);
+        toast('지난번 걷던 자리에서 이어 걸어요');
+        if (st.dist > 1) $('#resume').textContent = `지금까지 ${fmtDist(st.dist)}를 걸었어요. 이어서 걸어요.`;
+      }
+    }
+    cloudMark = -1; cloudSave(); persist();
+  } catch (e) { console.warn('[forest] profile sync', e); }
+}
+function updateAccountUI() {
+  const on = traces.online, g = account.isGoogle;
+  $('#btnAcct').hidden = !on;
+  $('#btnAcct').classList.toggle('signed', g);
+  $('#startLogin').hidden = !on || g;
+  if (on) {
+    $('#netState').textContent = g ? '구글 계정으로 이어 걷는 중 · 다른 이들의 흔적이 보이는 숲' : '다른 이들의 흔적이 보이는 숲';
+  }
+  $('#acctText').textContent = g ? '구글 계정으로 연결돼 있어요.' : '로그인하지 않고 걷는 중이에요.';
+  $('#acctSub').textContent = g
+    ? '내가 남긴 메시지는 민트빛으로 보이고, 어느 기기에서 들어와도 걷던 자리에서 이어 걸어요. 숲에는 이름·이메일이 표시되지 않아요.'
+    : 'Google로 로그인하면 메시지를 남길 수 있고, 내가 남긴 메시지를 알아볼 수 있으며, 다른 기기에서도 걷던 자리에서 이어 걸을 수 있어요.';
+  $('#acctBtn').textContent = g ? '로그아웃' : 'Google로 로그인';
+  $('#acctBtn').className = g ? 'ghost' : 'google';
+  const need = on && !g;
+  $('#msgLoginBox').hidden = !need; $('#msgFields').hidden = need;
+  modal.classList.toggle('need-login', need);
+}
+function login(errEl) {
+  errEl.textContent = '';
+  return account.signInGoogle().then(() => true).catch((e) => { if (!e.quiet) errEl.textContent = e.message; return false; });
+}
+account.onChange(() => { updateAccountUI(); syncProfile(); });
+
 traces.init().then((ok) => {
-  $('#netState').textContent = ok ? '다른 이들의 흔적이 보이는 숲' : '혼자 걷는 숲 (흔적 공유는 Firebase 연결 후)';
+  if (!ok) $('#netState').textContent = '혼자 걷는 숲 (흔적 공유는 Firebase 연결 후)';
   $('#netState').classList.toggle('on', ok);
+  updateAccountUI();
 });
+$('#startLogin').addEventListener('click', () => login($('#netState')));
 
 $('#enter').addEventListener('click', () => {
   audio.start();
@@ -91,16 +150,28 @@ else $('#btnFull').addEventListener('click', () => {
   else (document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen).call(document.documentElement);
 });
 
+// 계정 창
+const acct = $('#acctModal');
+$('#btnAcct').addEventListener('click', () => { $('#acctErr').textContent = ''; acct.classList.add('on'); controls.enabled = false; controls.keys.clear(); });
+$('#acctClose').addEventListener('click', () => { acct.classList.remove('on'); controls.enabled = true; });
+$('#acctBtn').addEventListener('click', () => {
+  if (account.isGoogle) { cloudSave(); account.signOut().then(() => { acct.classList.remove('on'); controls.enabled = true; toast('로그아웃했어요'); }); }
+  else login($('#acctErr')).then((ok) => { if (ok) { acct.classList.remove('on'); controls.enabled = true; toast('구글 계정으로 연결했어요'); } });
+});
+
 // 메시지 남기기
 const modal = $('#msgModal'), ta = $('#msgText'), err = $('#msgErr');
+$('#msgLoginBtn').addEventListener('click', () => login($('#msgLoginErr')).then((ok) => ok && setTimeout(() => ta.focus(), 50)));
 $('#btnMsg').addEventListener('click', () => {
   const c = traces.canPost();
   err.textContent = c.ok ? '' : c.why;
   $('#msgNote').textContent = traces.online ? '숲을 지나는 누군가가 이 자리에서 읽게 돼요. 30일 뒤 사라져요.' : '지금은 혼자 걷는 숲이라 이 기기에서만 보여요.';
   modal.classList.add('on'); controls.enabled = false; controls.keys.clear();
-  setTimeout(() => ta.focus(), 50);
+  $('#msgLoginErr').textContent = '';
+  if (!modal.classList.contains('need-login')) setTimeout(() => ta.focus(), 50);
 });
 const closeModal = () => { modal.classList.remove('on'); controls.enabled = true; ta.blur(); };
+addEventListener('keydown', (e) => { if (e.key === 'Escape') { if (modal.classList.contains('on')) closeModal(); if (acct.classList.contains('on')) $('#acctClose').click(); } });
 $('#msgCancel').addEventListener('click', closeModal);
 ta.addEventListener('input', () => { $('#msgCount').textContent = `${ta.value.length}/40`; err.textContent = ''; });
 $('#msgForm').addEventListener('submit', async (e) => {
@@ -143,7 +214,7 @@ function frame(now) {
   st.x = nx; st.z = nz;
   const moving = moved > 0.002;
   if (controls.enabled) st.time += dt;
-  st.dist += moved;
+  st.dist += moved; walkedThisSession += moved;
 
   // 발소리·머리 흔들림
   if (moving) {
@@ -187,4 +258,4 @@ function frame(now) {
 requestAnimationFrame(frame);
 
 // 테스트·디버그용
-window.__forest = { st, controls, world, sky, traces, renderer, camera, scene, Q, CHUNK };
+window.__forest = { account, updateAccountUI, st, controls, world, sky, traces, renderer, camera, scene, Q, CHUNK };
