@@ -6,10 +6,10 @@
 //    데이터 보호는 firestore.rules(보안 규칙)가 담당합니다.
 // ─────────────────────────────────────────────────────────────
 export const FIREBASE_CONFIG = {
-  apiKey: '',
-  authDomain: '',
-  projectId: '',
-  storageBucket: '',
-  messagingSenderId: '',
-  appId: '',
+  apiKey: 'AIzaSyCVmPLBqZNjZp_C2Ta_alkrRdyhpBoOmyU',
+  authDomain: 'forest-forest.firebaseapp.com',
+  projectId: 'forest-forest',
+  storageBucket: 'forest-forest.firebasestorage.app',
+  messagingSenderId: '19991550338',
+  appId: '1:19991550338:web:047966de8bf32ca3a8179b',
 };

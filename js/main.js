@@ -126,7 +126,7 @@ function login(errEl) {
 account.onChange(() => { updateAccountUI(); syncProfile(); });
 
 traces.init().then((ok) => {
-  if (!ok) $('#netState').textContent = '혼자 걷는 숲 (흔적 공유는 Firebase 연결 후)';
+  if (!ok) $('#netState').textContent = account.enabled ? `Firebase에 연결하지 못했어요 (${traces.error}) · 혼자 걷는 숲` : '혼자 걷는 숲 (js/config.js에 Firebase 설정을 넣으면 흔적이 공유돼요)';
   $('#netState').classList.toggle('on', ok);
   updateAccountUI();
 });

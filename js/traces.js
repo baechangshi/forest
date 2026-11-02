@@ -58,6 +58,7 @@ export class Traces {
       return true;
     } catch (e) {
       console.warn('[forest] Firebase 연결 실패 — 혼자 걷는 모드로 전환', e);
+      this.error = e.code || e.message || String(e);
       this.loadLocal(); return false;
     }
   }
